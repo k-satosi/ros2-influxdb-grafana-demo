@@ -1,0 +1,75 @@
+services:
+  ros_publisher:
+    build:
+      context: ./ros
+      dockerfile: Dockerfile.pub
+    container_name: ros_publisher
+    environment:
+      - ROS_DOMAIN_ID=0
+    networks:
+      - ros
+
+  ros_subscriber:
+    build:
+      context: ./ros
+      dockerfile: Dockerfile.sub
+    container_name: ros_subscriber
+    depends_on:
+      influxdb:
+        condition: service_healthy
+    environment:
+      - ROS_DOMAIN_ID=0
+      - INFLUXDB_HOST=influxdb
+      - INFLUXDB_PORT=8086
+      - INFLUXDB_TOKEN=token
+      - INFLUXDB_ORG=org
+      - INFLUXDB_BUCKET=bucket
+    networks:
+      - ros
+
+  influxdb:
+    image: influxdb:2.6
+    container_name: influxdb
+    volumes:
+      - influxdb-data:/var/lib/influxdb2
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=admin
+      - DOCKER_INFLUXDB_INIT_PASSWORD=password
+      - DOCKER_INFLUXDB_INIT_ORG=org
+      - DOCKER_INFLUXDB_INIT_BUCKET=bucket
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=token
+    ports:
+      - "8086:8086"
+    networks:
+      - ros
+    healthcheck:
+      test: "curl -f http://localhost:8086/ping"
+      interval: 5s
+      timeout: 10s
+      retries: 5
+
+  grafana:
+    image: grafana/grafana:11.1.4
+    container_name: grafana
+    depends_on:
+      - influxdb
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/etc/grafana/provisioning/dashboards/dashboard.json
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    ports:
+      - "3000:3000"
+    networks:
+      - ros
+
+networks:
+  ros:
+    driver: bridge
+
+volumes:
+  influxdb-data:
+  grafana-data:

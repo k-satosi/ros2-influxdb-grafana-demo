@@ -1,0 +1,10 @@
+FROM ros:humble
+
+RUN apt-get update && apt-get install -y python3-pip
+
+COPY ./py_pubsub /ros_ws/src/py_pubsub
+WORKDIR /ros_ws
+
+RUN . /opt/ros/humble/setup.sh && colcon build
+
+CMD ["bash", "-c", "source /opt/ros/humble/setup.sh && source install/setup.sh && ros2 run py_pubsub publisher"]
